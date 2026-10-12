@@ -1,0 +1,219 @@
+# =============================================================================
+# DESKPILOT — OPTIMIZED MASTER GITIGNORE
+# Only source code, required configs, and documentation should be tracked.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. DEPENDENCY DIRECTORIES
+# -----------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+vendor/
+**/vendor/
+
+# -----------------------------------------------------------------------------
+# 2. BUILD OUTPUTS & COMPILED BUNDLES
+# -----------------------------------------------------------------------------
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+*.tsbuildinfo
+**/publish/
+apps/agent/publish/
+apps/server/public/build/
+apps/server/public/hot
+apps/server/public/storage
+
+# -----------------------------------------------------------------------------
+# 3. ENVIRONMENT & CREDENTIAL SECRETS (NEVER COMMIT)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+**/.env
+**/.env.*
+*.env
+*.env.*
+.env.backup
+.env.production
+auth.json
+
+# Whitelist safe configuration examples only:
+!.env.example
+!**/.env.example
+!.env.testing.example
+!**/.env.testing.example
+
+# Certificates & private keys
+*.key
+*.pem
+*.cert
+*.crt
+*.pfx
+*.p12
+*.pub.private
+apps/server/storage/*.key
+apps/server/storage/oauth-*.key
+
+# -----------------------------------------------------------------------------
+# 4. LARAVEL SERVER STORAGE & FRAMEWORK CACHES
+# -----------------------------------------------------------------------------
+apps/server/bootstrap/cache/*.php
+!apps/server/bootstrap/cache/.gitignore
+
+apps/server/storage/logs/*
+!apps/server/storage/logs/.gitignore
+
+apps/server/storage/framework/cache/data/*
+!apps/server/storage/framework/cache/data/.gitignore
+
+apps/server/storage/framework/sessions/*
+!apps/server/storage/framework/sessions/.gitignore
+
+apps/server/storage/framework/views/*
+!apps/server/storage/framework/views/.gitignore
+
+apps/server/storage/framework/testing/*
+!apps/server/storage/framework/testing/.gitignore
+
+apps/server/storage/app/*
+!apps/server/storage/app/.gitignore
+!apps/server/storage/app/public/
+!apps/server/storage/app/private/
+apps/server/storage/pail/
+
+.phpunit.result.cache
+.phpunit.cache/
+**/.phpunit.result.cache
+**/.phpunit.cache/
+
+# -----------------------------------------------------------------------------
+# 5. .NET / C# AGENT ARTIFACTS (apps/agent)
+# -----------------------------------------------------------------------------
+[Bb]in/
+**/[Bb]in/
+[Oo]bj/
+**/[Oo]bj/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+apps/agent/**/bin/
+apps/agent/**/obj/
+
+# -----------------------------------------------------------------------------
+# 6. TESTING, COVERAGE & REPORTS
+# -----------------------------------------------------------------------------
+coverage/
+**/coverage/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+.nyc_output/
+
+# -----------------------------------------------------------------------------
+# 7. LOGS & RUNTIMES
+# -----------------------------------------------------------------------------
+*.log
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.sites-runtime/
+.local-tools/
+
+# -----------------------------------------------------------------------------
+# 8. LOCAL DATABASES & DUMPS
+# -----------------------------------------------------------------------------
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.sql.dump
+*.dump
+
+# -----------------------------------------------------------------------------
+# 9. DOCKER LOCAL OVERRIDES
+# -----------------------------------------------------------------------------
+docker-compose.override.yml
+docker-compose.override.yaml
+Homestead.json
+Homestead.yaml
+
+# -----------------------------------------------------------------------------
+# 10. OPERATING SYSTEM ARTIFACTS
+# -----------------------------------------------------------------------------
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100/
+.fseventsd/
+.Spotlight-V100/
+.TemporaryItems/
+.Trashes/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+
+# -----------------------------------------------------------------------------
+# 11. IDEs, EDITORS & WORKSPACES
+# -----------------------------------------------------------------------------
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+.fleet/
+.nova/
+.zed/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*.swn
+.phpactor.json
+
+# -----------------------------------------------------------------------------
+# 12. AI ASSISTANTS & SCRATCH CACHES
+# -----------------------------------------------------------------------------
+.openai/
+**/.openai/
+.gemini/
+**/.gemini/
+.claude/
+**/.claude/
+.cursor/
+**/.cursor/
+.agents/
+**/.agents/
+.system_generated/
+**/.system_generated/
+
+# -----------------------------------------------------------------------------
+# 13. COMPRESSED & TEMPORARY FILES
+# -----------------------------------------------------------------------------
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.bak
+*.tmp
+*.temp

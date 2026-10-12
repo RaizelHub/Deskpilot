@@ -1,0 +1,86 @@
+{
+  "name": "DeskPilot — verify signed events (validation only)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deskpilot-events",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "deskpilot-webhook",
+      "name": "DeskPilot event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "deskpilot-events"
+    },
+    {
+      "parameters": {
+        "jsCode": "const {createHmac,timingSafeEqual}=require('crypto');\nconst secret=$env.DESKPILOT_WEBHOOK_SECRET;\nif(typeof secret!=='string'||!/^[a-f0-9]{64}$/.test(secret))throw new Error('Configure the DeskPilot signing secret');\nconst headers=$input.first().json.headers;\nconst raw=await this.helpers.getBinaryDataBuffer(0,'data');\nconst timestamp=headers['x-deskpilot-timestamp'];\nconst signature=headers['x-deskpilot-signature'];\nconst delivery=headers['x-deskpilot-delivery'];\nconst reject=()=>[{json:{status:401,response:{accepted:false}}}];\nif(raw.length>65536||typeof timestamp!=='string'||!/^\\d{10,12}$/.test(timestamp)||Math.abs(Date.now()/1000-Number(timestamp))>300||typeof signature!=='string'||!/^sha256=[a-f0-9]{64}$/.test(signature))return reject();\nconst expected='sha256='+createHmac('sha256',secret).update(timestamp+'.').update(raw).digest('hex');\nif(!timingSafeEqual(Buffer.from(signature),Buffer.from(expected)))return reject();\nlet event;try{event=JSON.parse(raw.toString('utf8'));}catch{return reject();}\nif(!event||typeof event!=='object'||typeof event.id!=='string'||typeof event.event!=='string'||event.event!==headers['x-deskpilot-event']||typeof delivery!=='string'||!/^[a-f0-9-]{36}$/.test(delivery))return reject();\n// Validation-only template. Add durable deduplication before any side effects.\nreturn [{json:{status:200,response:{accepted:true},delivery_id:delivery,event}}];\n"
+      },
+      "id": "verify-signature",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "id": "respond",
+      "name": "Respond after verification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        520,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "DeskPilot event": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Respond after verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  },
+  "pinData": {}
+}

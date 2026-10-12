@@ -1,0 +1,16 @@
+.git
+.env
+**/.env
+**/node_modules
+**/vendor
+**/storage/logs/*
+**/storage/framework/sessions/*
+**/storage/framework/views/*
+**/bootstrap/cache/*.php
+**/*.sqlite
+apps/web/dist
+dist
+*.zip
+.local-tools
+apps/agent
+**/storage/app/ticket-attachments

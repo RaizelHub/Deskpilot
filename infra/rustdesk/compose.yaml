@@ -1,0 +1,25 @@
+# Optional preparation only; separate from the application stack.
+name: deskpilot-rustdesk
+services:
+  hbbs:
+    image: ${RUSTDESK_SERVER_IMAGE:?Set a verified rustdesk/rustdesk-server image digest}
+    command: hbbs
+    restart: unless-stopped
+    depends_on:
+      - hbbr
+    volumes:
+      - rustdesk-data:/root
+    ports:
+      - "${RUSTDESK_BIND_ADDRESS:-127.0.0.1}:21115:21115/tcp"
+      - "${RUSTDESK_BIND_ADDRESS:-127.0.0.1}:21116:21116/tcp"
+      - "${RUSTDESK_BIND_ADDRESS:-127.0.0.1}:21116:21116/udp"
+  hbbr:
+    image: ${RUSTDESK_SERVER_IMAGE:?Set a verified rustdesk/rustdesk-server image digest}
+    command: hbbr
+    restart: unless-stopped
+    volumes:
+      - rustdesk-data:/root
+    ports:
+      - "${RUSTDESK_BIND_ADDRESS:-127.0.0.1}:21117:21117/tcp"
+volumes:
+  rustdesk-data:

@@ -1,0 +1,18 @@
+# DeskPilot n8n receiver
+
+`deskpilot-events.json` is an **inactive, validation-only** workflow: Webhook → Verify signature → Respond after verification. It has no email, chat, device command or other external side effects. Its verification code is tested locally; import and execution have not been verified on a live n8n deployment in this workspace.
+
+1. Use a dedicated, trusted self-hosted n8n instance behind a public HTTPS endpoint on port 443. Import the JSON without activating it.
+2. Create a disabled webhook in DeskPilot and select events. Store its one-time secret as `DESKPILOT_WEBHOOK_SECRET` in the trusted n8n code execution environment. Never paste it into workflow JSON, exported credentials, logs or source control.
+3. Permit the built-in `crypto` module with `NODE_FUNCTION_ALLOW_BUILTIN=crypto`. If using task runners, configure the runner environment too. The Code node requires access to this environment secret; if your deployment blocks `$env`, use a credential-backed verifier/custom node or an authenticated verification gateway instead. Do not weaken a shared untrusted n8n deployment just for this template.
+4. Keep Raw Body enabled on the Webhook node. The verifier reads binary `data` via `getBinaryDataBuffer`, preserving original bytes. Keep response mode **Using Respond to Webhook Node** so invalid requests receive 401. Missing server-side secret configuration fails closed.
+5. During testing, start listening on the test URL, save that URL in DeskPilot, enable the webhook and send a test. Verify a 200 response in delivery history and an accepted verification result in n8n. Test an altered body/signature and a timestamp older than five minutes; these must receive 401. Use temporary execution visibility only as necessary; payloads contain record identifiers.
+6. Publish the workflow and replace the DeskPilot test URL with the production URL when ready. A configuration update cancels old queued requests. Send another test through the production path. The template disables saved execution data by default.
+
+Before adding business actions, put an explicit accepted-status branch after verification, and persist the **signed event.id** with a unique receiver/event key in a transactional durable inbox. Reject/stop all invalid branches. Record durable acceptance before returning 2xx. Process the inbox separately with idempotent actions; an n8n execution log is not an exactly-once guarantee. Do not attach actions directly after the shared response node, which also handles rejected requests. The validation-only template acknowledges without persisting events and is not yet a production business workflow.
+
+DeskPilot signs `timestamp + "." + rawBody` with HMAC-SHA256 using the secret as an ASCII string. Automatic retries have fresh timestamps/signatures and retain the same signed event ID. The delivery header is diagnostic and is not separately signed. Payloads do not carry ticket descriptions, private notes or personal names.
+
+Validation: `node scripts/n8n-verifier-check.mjs` exercises the actual Code node source with n8n input/helper stubs. `node scripts/automation-browser-check.mjs` checks a real Laravel queue worker against a local HTTP HMAC verifier. Neither substitutes for importing and testing your configured n8n instance.
+
+Official references: [Webhook node](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/), [module access](https://docs.n8n.io/hosting/configuration/configuration-examples/modules-in-code-node/), [raw-body implementation](https://github.com/n8n-io/n8n/blob/master/packages/nodes-base/nodes/Webhook/Webhook.node.ts).

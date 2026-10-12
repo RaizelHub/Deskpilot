@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DeskPilot.Agent.Core/DeskPilot.Agent.Core.csproj" />
+    <Project Path="src/DeskPilot.Agent.Infrastructure/DeskPilot.Agent.Infrastructure.csproj" />
+    <Project Path="src/DeskPilot.Agent.Service/DeskPilot.Agent.Service.csproj" />
+    <Project Path="src/DeskPilot.Agent.Tray/DeskPilot.Agent.Tray.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DeskPilot.Agent.Checks/DeskPilot.Agent.Checks.csproj" />
+  </Folder>
+</Solution>

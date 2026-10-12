@@ -1,0 +1,1 @@
+{"name":"deskpilot","private":true,"version":"0.2.0","workspaces":["apps/web"],"scripts":{"start":"npm run dev --workspace apps/web","build":"npm run build --workspace apps/web","typecheck":"npm run typecheck --workspace apps/web","lint":"npm run lint --workspace apps/web","test":"npm run test --workspace apps/web","preview:legacy":"node server.mjs"}}

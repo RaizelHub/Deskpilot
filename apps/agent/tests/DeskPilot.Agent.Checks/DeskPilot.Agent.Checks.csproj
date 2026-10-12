@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><ProjectReference Include="../../src/DeskPilot.Agent.Infrastructure/DeskPilot.Agent.Infrastructure.csproj"/></ItemGroup></Project>

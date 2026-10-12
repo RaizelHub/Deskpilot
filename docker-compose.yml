@@ -1,0 +1,93 @@
+name: deskpilot
+x-app: &app
+  build:
+    context: .
+    dockerfile: infrastructure/docker/php.Dockerfile
+  environment: &environment
+    APP_NAME: DeskPilot
+    APP_ENV: local
+    APP_DEBUG: "false"
+    APP_KEY: ${APP_KEY:?Generate an application key first}
+    APP_URL: ${APP_URL:-http://localhost:8080}
+    FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: ${DB_DATABASE:-deskpilot}
+    DB_USERNAME: ${DB_USERNAME:-deskpilot}
+    DB_PASSWORD: ${DB_PASSWORD:?Set a database password first}
+    SESSION_DRIVER: redis
+    SESSION_ENCRYPT: "true"
+    SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-false}
+    SESSION_LIFETIME: 120
+    CACHE_STORE: redis
+    QUEUE_CONNECTION: redis
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    MAIL_MAILER: smtp
+    MAIL_HOST: mailpit
+    MAIL_PORT: 1025
+    MAIL_FROM_ADDRESS: support@example.test
+    MAIL_FROM_NAME: DeskPilot
+    LOG_CHANNEL: stderr
+  volumes:
+    - storage:/var/www/server/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+services:
+  api:
+    <<: *app
+  worker:
+    <<: *app
+    command: php artisan queue:work --tries=3 --timeout=60 --max-time=3600
+    restart: unless-stopped
+  scheduler:
+    <<: *app
+    command: php artisan schedule:work
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on: [api]
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-deskpilot}
+      POSTGRES_USER: ${DB_USERNAME:-deskpilot}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a database password first}
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  redis:
+    image: redis:8-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "127.0.0.1:63799:6379"
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:10259:1025"
+volumes:
+  postgres:
+  redis:
+  storage:
