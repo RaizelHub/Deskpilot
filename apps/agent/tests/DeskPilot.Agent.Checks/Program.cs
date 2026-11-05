@@ -23,6 +23,10 @@ try
     Check(rejectedCommand.Status == "rejected", "Unknown command must never execute");
     Check(!Diagnostics.ValidResult(new DiagnosticResult("succeeded", "Invalid output", 1, [new("Result", "pass", new string('x', 2001))])), "Oversized result accepted");
     Check(!Diagnostics.ValidResult(new DiagnosticResult("succeeded", null!, 1, [])), "Null summary accepted");
+    Check(Diagnostics.Allowed.Contains("network.comprehensive_troubleshoot"), "Network troubleshooting command must be approved in Allowed list");
+    var networkCheck = await Diagnostics.Execute("network.comprehensive_troubleshoot", CancellationToken.None);
+    Check(Diagnostics.ValidResult(networkCheck), "Network troubleshooting returned invalid diagnostic schema");
+    Check(networkCheck.Checks.Any(c => c.Name == "Troubleshooting Classification"), "Classification check missing from network troubleshooting");
     var pending = new PendingResult(Guid.NewGuid().ToString(), Guid.NewGuid().ToString(), rejectedCommand);
     vault.SavePending(pending); var restored = vault.LoadPending();
     Check(restored?.CommandId == pending.CommandId && restored.Result.Summary == rejectedCommand.Summary, "Pending result DPAPI roundtrip failed");

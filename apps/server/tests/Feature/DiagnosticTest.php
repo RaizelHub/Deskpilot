@@ -157,4 +157,44 @@ class DiagnosticTest extends TestCase
         $this->device = $this->makeDevice();
         $this->signed("commands/$c/result",$this->resultPayload($lease['lease_id']))->assertNotFound();
     }
+
+    public function test_comprehensive_network_troubleshooting_catalog_and_lifecycle(): void
+    {
+        // 1. Verify catalog exposes network.comprehensive_troubleshoot
+        $catalog = $this->actingAs($this->admin)->getJson('/api/v1/diagnostic-catalog')->assertOk()->json('data');
+        $commands = array_column($catalog, 'command');
+        $this->assertContains('network.comprehensive_troubleshoot', $commands);
+
+        // 2. Request network.comprehensive_troubleshoot
+        $cmd = $this->requestCommand(['command' => 'network.comprehensive_troubleshoot', 'reason' => 'Diagnose offline adapter'])->assertCreated()->json('data');
+        $this->assertSame('network.comprehensive_troubleshoot', $cmd['command']);
+
+        // 3. Agent claims and runs command
+        $lease = $this->signed('commands/claim')->assertOk()->json('data');
+        $this->assertSame('network.comprehensive_troubleshoot', $lease['command']);
+        $this->signed('commands/'.$cmd['id'].'/start', ['lease_id' => $lease['lease_id']])->assertJsonPath('status', 'running');
+
+        // 4. Deliver comprehensive result with classification check
+        $payload = [
+            'lease_id' => $lease['lease_id'],
+            'status' => 'succeeded',
+            'summary' => 'The approved read-only check completed.',
+            'duration_ms' => 42,
+            'checks' => [
+                ['name' => 'Network Adapter', 'status' => 'pass', 'detail' => 'Primary adapter Ethernet is Up.', 'duration_ms' => 1],
+                ['name' => 'IPv4 Configuration', 'status' => 'pass', 'detail' => 'Valid IPv4: 192.168.1.100/255.255.255.0.', 'duration_ms' => 1],
+                ['name' => 'Default Gateway', 'status' => 'pass', 'detail' => 'Gateway 192.168.1.1 reachable.', 'duration_ms' => 10],
+                ['name' => 'DNS Resolution', 'status' => 'pass', 'detail' => 'www.microsoft.com resolved.', 'duration_ms' => 12],
+                ['name' => 'Internet Connectivity', 'status' => 'pass', 'detail' => 'Outbound HTTPS succeeded.', 'duration_ms' => 15],
+                ['name' => 'Troubleshooting Classification', 'status' => 'pass', 'detail' => 'HEALTHY: All network layers operating normally.', 'duration_ms' => null],
+            ],
+        ];
+        $this->signed('commands/'.$cmd['id'].'/result', $payload)->assertJsonPath('status', 'succeeded');
+
+        // 5. Verify result retrieved by technician includes classification
+        $view = $this->getJson('/api/v1/devices/'.$this->device->id.'/diagnostics')->assertOk()->json('data.0');
+        $this->assertSame('network.comprehensive_troubleshoot', $view['command']);
+        $this->assertCount(6, $view['result']);
+        $this->assertSame('Troubleshooting Classification', $view['result'][5]['name']);
+    }
 }

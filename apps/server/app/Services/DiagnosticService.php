@@ -17,6 +17,7 @@ class DiagnosticService
         'network.ip_configuration' => ['name' => 'IP configuration', 'description' => 'Read active adapter addresses, gateways, DNS and link state.'],
         'network.dhcp_information' => ['name' => 'DHCP information', 'description' => 'Read Windows DHCP mode, server and lease information; no release or renew.'],
         'network.traceroute' => ['name' => 'Traceroute', 'description' => 'Trace up to 12 IPv4 hops to 1.1.1.1. Firewalls may hide hops.'],
+        'network.comprehensive_troubleshoot' => ['name' => 'Network troubleshooting', 'description' => 'Evaluates network adapter, DHCP lease, gateway ping, DNS resolution, and backend reachability.'],
         'system.check_disk' => ['name' => 'Disk check', 'description' => 'Read fixed-disk accessibility, free space and Windows disk status. No repairs or filesystem integrity scan.'],
     ];
 

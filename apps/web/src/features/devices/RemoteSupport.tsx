@@ -12,11 +12,13 @@ import { useSession } from "@/features/auth/session";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Empty,
+  CardSkeleton,
+  EmptyState,
   ErrorNotice,
   Field,
   Loading,
   Pagination,
+  ZeroSearchResults,
 } from "@/components/shared";
 import type { Page } from "@/lib/types";
 
@@ -283,17 +285,24 @@ export function RemoteSupport({ mine = false }: { mine?: boolean }) {
           </div>
 
           {requests.isPending ? (
-            <Loading />
+            <CardSkeleton count={3} />
           ) : requests.error ? (
             <ErrorNotice error={requests.error} />
           ) : (
             <>
               {requests.data?.data.length === 0 ? (
-                <Empty>
-                  <div className="empty-sessions-box">
-                    <p>No remote assistance sessions found.</p>
-                  </div>
-                </Empty>
+                filter !== "all" ? (
+                  <ZeroSearchResults
+                    query={filter}
+                    title="No sessions match this filter"
+                    onClear={() => setFilter("all")}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No remote sessions found"
+                    description="Request remote assistance or screen sharing from an active ticket or endpoint to begin."
+                  />
+                )
               ) : (
                 <div className="sessions-list-feed">
                   {requests.data?.data.map((s) => (

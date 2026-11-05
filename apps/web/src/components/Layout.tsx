@@ -34,7 +34,7 @@ import { api, json } from "@/lib/api";
 import { useSession } from "@/features/auth/session";
 import { usePreferences } from "@/stores/preferences";
 import { Button } from "./ui/button";
-import { ErrorNotice, Loading } from "./shared";
+import { ErrorNotice, Loading, OfflineBanner } from "./shared";
 import { CommandPalette } from "./CommandPalette";
 import { InboxLink } from "@/features/automation/Notifications";
 
@@ -442,6 +442,7 @@ export function Layout() {
         </div>
       </aside>
       <div className="app-main-canvas">
+        <OfflineBanner />
         <header className="app-topbar">
           <div className="topbar-left">
             <Button

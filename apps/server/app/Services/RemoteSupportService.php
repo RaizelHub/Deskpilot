@@ -74,6 +74,7 @@ class RemoteSupportService
                 return $previous;
             }
             abort_unless($device->state() === 'online', 409, 'Choose an online enrolled device.');
+            abort_unless($device->last_seen_at && $device->last_seen_at->gte(now()->subSeconds(90)), 409, 'Device heartbeat is overdue. Wait for device to check in before requesting remote support.');
             abort_unless(preg_match('/^\d+\.\d+\.\d+$/', $device->agent_version) && version_compare($device->agent_version, '0.6.0', '>='), 409, 'Upgrade this device to agent 0.6.0 for support notifications.');
             abort_if(RemoteSession::where('device_id', $device->id)->whereIn('status', RemoteSession::ACTIVE)->exists(), 409, 'This device already has a pending support request.');
             abort_if($data['mode'] === 'control' && ! $actor->hasPermission('remote.control'), 403);

@@ -13,10 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { MiniBar } from "@/components/ui/gauge";
 import {
   Empty,
+  EmptyState,
   ErrorNotice,
   Field,
   Loading,
   Pagination,
+  TableSkeleton,
+  ZeroSearchResults,
 } from "@/components/shared";
 
 interface Hardware {
@@ -223,8 +226,8 @@ function Grants() {
         </div>
       </div>
       {q.isPending ? (
-        <Loading />
-      ) : q.error ? (
+            <TableSkeleton columns={10} rows={7} />
+          ) : q.error ? (
         <ErrorNotice error={q.error} />
       ) : (
         <>
@@ -595,20 +598,30 @@ export function Devices() {
               </div>
 
               {!q.data.data.length && (
-                <Empty>
-                  <div className="empty-devices-box">
-                    <h3>No endpoints found in this view</h3>
-                    <p>
-                      Enroll a Windows agent service on your client computers to
-                      see them here.
-                    </p>
-                    {manage && (
-                      <Button size="sm" onClick={() => setEnroll(true)}>
-                        Enroll Endpoint
-                      </Button>
-                    )}
-                  </div>
-                </Empty>
+                search || state !== "all" ? (
+                  <ZeroSearchResults
+                    query={search}
+                    title={search ? `No endpoints matching “${search}”` : "No endpoints match the selected filters"}
+                    suggestions={["computer name", "hostname", "serial number"]}
+                    onClear={() => {
+                      setSearch("");
+                      setState("all");
+                      setPage(1);
+                    }}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No registered endpoints yet"
+                    description="Enroll a Windows agent service on client computers to start monitoring real-time metrics, disks, health, and remote control."
+                    action={
+                      manage ? (
+                        <Button size="sm" onClick={() => setEnroll(true)}>
+                          Enroll Endpoint
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                )
               )}
 
               <Pagination result={q.data} page={page} onChange={setPage} />

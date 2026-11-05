@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Device;
+use App\Models\Permission;
 use App\Models\RemoteSession;
 use App\Models\Role;
 use App\Models\Ticket;
@@ -109,6 +110,7 @@ class RemoteSupportTest extends TestCase
         app(RemoteSupportService::class)->sweep();
         $this->assertSame('expired', RemoteSession::find($id)->status);
         $this->act($id, 'control')->assertConflict();
+        $this->device->update(['last_seen_at' => now()]);
         $this->payload['request_key'] = (string) Str::uuid();
         $id = $this->requestSupport();
         $this->postJson('/api/v1/devices/'.$this->device->id.'/revoke', ['reason' => 'Device retired'])->assertOk();
@@ -141,8 +143,84 @@ class RemoteSupportTest extends TestCase
         $this->actingAs($this->tech)->postJson('/api/v1/remote-sessions', $this->payload)->assertConflict();
         $this->device->update(['agent_version' => '0.6.0', 'last_seen_at' => now()->subMinutes(4)]);
         $this->postJson('/api/v1/remote-sessions', $this->payload)->assertConflict();
+        $this->device->update(['last_seen_at' => now()->subSeconds(95)]);
+        $this->postJson('/api/v1/remote-sessions', $this->payload)->assertConflict()->assertJsonPath('message', 'Device heartbeat is overdue. Wait for device to check in before requesting remote support.');
         $this->device->update(['last_seen_at' => now()]);
         Ticket::find($this->payload['ticket_id'])->update(['requester_id' => $this->tech->id]);
         $this->postJson('/api/v1/remote-sessions', $this->payload)->assertUnprocessable();
+    }
+    public function test_remote_session_security_lifecycle_and_unauthorized_isolation(): void
+    {
+        // 1. Verify remote session requires approval and cannot establish connection while pending
+        $id = $this->requestSupport();
+        $session = RemoteSession::findOrFail($id);
+        $this->assertSame('requested', $session->status);
+        $this->assertNull($session->approved_at);
+        $this->assertNull($session->approved_mode);
+
+        // Requesting tech cannot self-approve or force connection
+        $this->actingAs($this->tech)->postJson('/api/v1/remote-sessions/'.$id.'/actions', ['action' => 'view'])->assertForbidden();
+        $this->actingAs($this->tech)->postJson('/api/v1/remote-sessions/'.$id.'/actions', ['action' => 'control'])->assertForbidden();
+        $this->actingAs($this->tech)->postJson('/api/v1/remote-sessions/'.$id.'/actions', ['action' => 'connected'])->assertUnprocessable();
+
+        // 2. Verify unauthorized technicians cannot join or view
+        $unauthorizedTech = $this->account('it-technician');
+        $this->actingAs($unauthorizedTech)->getJson('/api/v1/remote-sessions/'.$id)->assertNotFound();
+        $this->actingAs($unauthorizedTech)->postJson('/api/v1/remote-sessions/'.$id.'/actions', ['action' => 'cancel'])->assertNotFound();
+        $this->actingAs($unauthorizedTech)->postJson('/api/v1/remote-sessions/'.$id.'/actions', ['action' => 'view'])->assertNotFound();
+
+        // User without remote.request / devices.view is forbidden from creating or listing sessions
+        $helpdesk = $this->account('helpdesk-agent');
+        $this->actingAs($helpdesk)->getJson('/api/v1/remote-sessions')->assertForbidden();
+        $this->actingAs($helpdesk)->postJson('/api/v1/remote-sessions', $this->payload)->assertForbidden();
+
+        // Technician without remote.control cannot request control mode
+        $device2 = Device::create(['name' => 'Support PC 2', 'hostname' => 'SUPPORT-PC-2', 'agent_version' => '0.6.0', 'last_seen_at' => now()]);
+        $viewOnlyRole = Role::create(['name' => 'View Only Technician', 'slug' => 'view-only-tech']);
+        $viewOnlyRole->permissions()->sync(
+            Permission::whereIn('name', ['devices.view', 'remote.request', 'tickets.view'])->pluck('id')
+        );
+        $viewOnlyTech = User::factory()->create(['is_active' => true]);
+        $viewOnlyTech->roles()->attach($viewOnlyRole);
+
+        $this->actingAs($viewOnlyTech)->postJson('/api/v1/remote-sessions', [
+            ...$this->payload,
+            'device_id' => $device2->id,
+            'request_key' => (string) Str::uuid(),
+            'mode' => 'control',
+        ])->assertForbidden();
+
+        // 3. Confirm customer approval is required and records consent
+        $this->actingAs($this->customer);
+        $this->act($id, 'view')->assertOk()->assertJsonPath('data.status', 'approved');
+
+        // 4. Confirm disconnect (cancel) immediately stops remote access
+        $this->act($id, 'cancel')->assertOk()->assertJsonPath('data.status', 'cancelled');
+        $refreshed = RemoteSession::findOrFail($id);
+        $this->assertSame('cancelled', $refreshed->status);
+        $this->assertNotNull($refreshed->finished_at);
+
+        // Device poll returns null immediately after disconnect
+        $this->assertNull(app(RemoteSupportService::class)->poll($this->device));
+
+        // Reconnect attempt on cancelled session fails
+        $this->act($id, 'view')->assertConflict();
+        $this->act($id, 'control')->assertConflict();
+
+        // 5. Confirm rejected requests cannot establish a connection
+        $newPayload = [...$this->payload, 'request_key' => (string) Str::uuid()];
+        $newId = $this->actingAs($this->tech)->postJson('/api/v1/remote-sessions', $newPayload)->assertCreated()->json('data.id');
+        $this->actingAs($this->customer)->postJson('/api/v1/remote-sessions/'.$newId.'/actions', ['action' => 'decline'])->assertOk()->assertJsonPath('data.status', 'declined');
+
+        $declinedSession = RemoteSession::findOrFail($newId);
+        $this->assertSame('declined', $declinedSession->status);
+        $this->assertNotNull($declinedSession->finished_at);
+
+        // Device poll returns null for declined session
+        $this->assertNull(app(RemoteSupportService::class)->poll($this->device));
+
+        // Cannot approve or connect to declined session
+        $this->actingAs($this->customer)->postJson('/api/v1/remote-sessions/'.$newId.'/actions', ['action' => 'view'])->assertConflict();
+        $this->actingAs($this->customer)->postJson('/api/v1/remote-sessions/'.$newId.'/actions', ['action' => 'control'])->assertConflict();
     }
 }

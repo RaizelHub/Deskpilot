@@ -116,3 +116,20 @@ Final Phase 7 browser rerun passed after the mobile heading adjustment. Desktop,
 - Simplified the header, login presentation, shared controls, panels and dashboard. Removed unsupported connected/production-ready and security marketing claims from the shell/login.
 - Validation: frontend lint, TypeScript/production build, and all five existing frontend tests passed. The isolated `scripts/redesign-browser-check.mjs` uses intercepted fixture responses (not live backend data) to exercise desktop, compact navigation, themes, command search, mobile overflow, Escape dismissal and password visibility. Screenshots are named `redesign-*-fixture.png` in `docs/screenshots`.
 - Temporary preview closes after verification. DeskPilot Docker services remain stopped as requested; the redesign has not been deployed to those containers.
+
+## October 13, 2026 — image-led login
+
+The sign-in page now uses the existing local `apps/web/public/login-hero.jpg`
+asset in a rounded visual panel, with an independently styled dark form and muted
+lavender primary action. On phones the image becomes a short header above the form.
+No image generation or third-party image requests were used for this update.
+
+Removed hard-coded demo credential shortcuts and the disconnected remember-device
+checkbox. The API login, CSRF handling, validation, password visibility, error
+messages and password-recovery link remain available. No new authentication or
+session-persistence behavior is implied by the redesign.
+
+The browser preview uses fixture responses and checks the image loads, mobile
+width containment, password visibility and required-field validation. Previews:
+`docs/screenshots/login-premium-desktop.png` and
+`docs/screenshots/redesign-login-mobile-fixture.png`.

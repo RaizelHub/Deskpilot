@@ -8,7 +8,7 @@ import { z } from "zod";
 import { api, json } from "@/lib/api";
 import { useSession } from "./session";
 import { Button } from "@/components/ui/button";
-import { ErrorNotice, Field, Loading } from "@/components/shared";
+import { ErrorNotice, Field, Loading, SessionExpiredNotice } from "@/components/shared";
 import type { Session } from "@/lib/types";
 
 const loginSchema = z.object({
@@ -21,7 +21,9 @@ export function Login() {
   const session = useSession();
   const client = useQueryClient();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
+  const isExpired = searchParams.get("expired") === "true" || location.state?.reason === "expired";
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -53,25 +55,48 @@ export function Login() {
   return (
     <div className="login-premium">
       <section className="login-visual" aria-label="DeskPilot introduction">
-        <img src="/login-hero.jpg" alt="" className="login-image" fetchPriority="high" />
+        <img
+          src="/login-servers-v2.png"
+          alt=""
+          className="login-image"
+          fetchPriority="high"
+        />
         <div className="login-image-shade" />
-        <div className="login-visual-top"><span className="login-wordmark">DeskPilot<span>.</span></span><span className="login-edition">IT SERVICE WORKSPACE</span></div>
-        <div className="login-story">
-          <span className="login-overline">LESS FRICTION. MORE FOCUS.</span>
-          <h1>Great support.<br />A clearer perspective.</h1>
-          <p>Bring your requests, devices, and people together.<br className="login-desktop-break" /> Make room for the work that matters.</p>
-          <div className="login-capabilities"><span>Ticket management</span><span>Device health</span><span>Team workflows</span></div>
+        <div className="login-visual-top">
+          <span className="login-wordmark">
+            DeskPilot<span>.</span>
+          </span>
+          <span className="login-edition">IT SERVICE WORKSPACE</span>
         </div>
-        <div className="login-visual-bottom"><span>One workspace. A shared direction.</span><span>DESKPILOT</span></div>
+        <div className="login-story">
+          <span className="login-overline">YOUR IT. IN ONE PLACE.</span>
+          <h1>
+            Connected systems.
+            <br />Confident support.
+          </h1>
+          <p>
+            Bring your requests, devices, and people together.
+            <br className="login-desktop-break" /> Make room for the work that
+            matters.
+          </p>
+
+        </div>
+        <div className="login-visual-bottom">
+          <span>One workspace. A shared direction.</span>
+          <span>DESKPILOT</span>
+        </div>
       </section>
       <main className="login-form-side">
-        <div className="login-mobile-brand">DeskPilot<span>.</span></div>
+        <div className="login-mobile-brand">
+          DeskPilot<span>.</span>
+        </div>
         <div className="login-form-inner">
           <div className="login-form-heading">
             <span className="login-overline">YOUR WORKSPACE AWAITS</span>
             <h2>Sign in to DeskPilot</h2>
             <p>Welcome back. Let’s get your day in focus.</p>
           </div>
+          {isExpired && <SessionExpiredNotice draftSaved={true} />}
           <form
             className="auth-input-form"
             onSubmit={form.handleSubmit((values) => login.mutate(values))}
@@ -119,7 +144,9 @@ export function Login() {
             </Field>
 
             <div className="login-recovery-row">
-              <Link className="forgot-password-link" to="/forgot-password">Forgot your password?</Link>
+              <Link className="forgot-password-link" to="/forgot-password">
+                Forgot your password?
+              </Link>
             </div>
 
             {login.error && <ErrorNotice error={login.error} />}
@@ -133,9 +160,14 @@ export function Login() {
             </Button>
           </form>
 
-          <p className="login-access-note">Need an account? <span>Contact your workspace administrator.</span></p>
+          <p className="login-access-note">
+            Need an account? <span>Contact your workspace administrator.</span>
+          </p>
         </div>
-        <footer className="login-form-footer"><span>DeskPilot workspace</span><span>Support starts here.</span></footer>
+        <footer className="login-form-footer">
+          <span>DeskPilot workspace</span>
+          <span>Support starts here.</span>
+        </footer>
       </main>
     </div>
   );

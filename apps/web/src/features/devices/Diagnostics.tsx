@@ -49,6 +49,8 @@ export function Diagnostics() {
   const [reason, setReason] = useState("");
   const [ticket, setTicket] = useState("");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [filter, setFilter] = useState<"all" | "attention" | "passed">("all");
+  const [copied, setCopied] = useState(false);
   const device = useQuery({
     queryKey: ["device", id],
     queryFn: () =>
@@ -104,6 +106,40 @@ export function Diagnostics() {
     runs.data?.data.find((r) => r.id === selected) ?? runs.data?.data[0];
   const title = (key: string) =>
     items.find((c) => c.command === key)?.name ?? key;
+  const currentChecks = current?.result ?? [];
+  const failCount = currentChecks.filter((c) => c.status === "fail").length;
+  const warningCount = currentChecks.filter((c) => c.status === "warning").length;
+  const filteredChecks = currentChecks.filter((c) => {
+    if (filter === "attention") return c.status === "fail" || c.status === "warning";
+    if (filter === "passed") return c.status === "pass" || c.status === "info";
+    return true;
+  });
+  const sortedChecks = [...filteredChecks].sort((a, b) => {
+    const score = (s: string) => (s === "fail" ? 0 : s === "warning" ? 1 : 2);
+    return score(a.status) - score(b.status);
+  });
+  const copySummary = () => {
+    if (!current) return;
+    const lines = [
+      "DeskPilot Diagnostic Report",
+      `Device: ${d.name}`,
+      `Check: ${title(current.command)} (${current.command})`,
+      `Status: ${current.status.toUpperCase()}`,
+      `Summary: ${current.summary}`,
+      `Reason: ${current.reason}`,
+      `Requested by: ${current.requester.name} on ${date(current.created_at)}`,
+      current.duration_ms !== null ? `Duration: ${(current.duration_ms / 1000).toFixed(2)}s` : null,
+      current.ticket_id ? `Ticket: ${current.ticket_id}` : null,
+      "",
+      `Checks (${currentChecks.length} total):`,
+      ...currentChecks.map((c) => `[${c.status.toUpperCase()}] ${c.name}: ${c.detail}`),
+    ].filter((line) => line !== null).join("\n");
+
+    void navigator.clipboard.writeText(lines).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
   const ready =
     d.state === "online" &&
     /^\d+\.\d+\.\d+$/.test(d.agent_version) &&
@@ -273,9 +309,21 @@ export function Diagnostics() {
               <p className="eyebrow">Check details</p>
               <h2>{title(current.command)}</h2>
             </div>
-            <span className={`diagnostic-status ${current.status}`}>
-              {current.status}
-            </span>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {currentChecks.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon="copy"
+                  onClick={copySummary}
+                >
+                  {copied ? "Copied!" : "Copy summary"}
+                </Button>
+              )}
+              <span className={`diagnostic-status ${current.status}`}>
+                {current.status}
+              </span>
+            </div>
           </div>
           <p>{current.summary}</p>
           <p className="footnote">
@@ -311,7 +359,50 @@ export function Diagnostics() {
               The device is running this check. Results refresh automatically.
             </p>
           )}
-          {current.result?.map((check, i) => (
+          {failCount > 0 && (
+            <div
+              style={{
+                padding: "12px 16px",
+                background: "#fce9e8",
+                border: "1px solid #f09597",
+                borderRadius: "8px",
+                color: "#a52e31",
+                margin: "16px 0",
+                fontSize: "13px",
+              }}
+            >
+              <strong>Diagnostic attention:</strong> {failCount} check{failCount > 1 ? "s" : ""} failed. Issues have been prioritized at the top of the list below.
+            </div>
+          )}
+          {currentChecks.length > 0 && (
+            <div style={{ display: "flex", gap: "8px", margin: "16px 0 8px", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 500 }}>Filter:</span>
+              <button
+                type="button"
+                className={`button button-small ${filter === "all" ? "button-primary" : "button-ghost"}`}
+                onClick={() => setFilter("all")}
+              >
+                All ({currentChecks.length})
+              </button>
+              {(failCount > 0 || warningCount > 0) && (
+                <button
+                  type="button"
+                  className={`button button-small ${filter === "attention" ? "button-primary" : "button-ghost"}`}
+                  onClick={() => setFilter("attention")}
+                >
+                  Issues ({failCount + warningCount})
+                </button>
+              )}
+              <button
+                type="button"
+                className={`button button-small ${filter === "passed" ? "button-primary" : "button-ghost"}`}
+                onClick={() => setFilter("passed")}
+              >
+                Passed ({currentChecks.length - failCount - warningCount})
+              </button>
+            </div>
+          )}
+          {sortedChecks.map((check, i) => (
             <div className="diagnostic-check" key={i}>
               <div>
                 <strong>{check.name}</strong>
