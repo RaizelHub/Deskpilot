@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Department;
 use App\Models\Device;
 use App\Models\Permission;
 use App\Models\RemoteSession;
@@ -222,5 +223,82 @@ class RemoteSupportTest extends TestCase
         // Cannot approve or connect to declined session
         $this->actingAs($this->customer)->postJson('/api/v1/remote-sessions/'.$newId.'/actions', ['action' => 'view'])->assertConflict();
         $this->actingAs($this->customer)->postJson('/api/v1/remote-sessions/'.$newId.'/actions', ['action' => 'control'])->assertConflict();
+    }
+
+    public function test_cross_department_device_authorization_rejection_and_reconciliation(): void
+    {
+        $deptFinance = Department::create(['name' => 'Finance']);
+        $deptMarketing = Department::create(['name' => 'Marketing']);
+
+        // Assign fixture device to Finance department
+        $financeDevice = Device::create([
+            'name' => 'Finance PC',
+            'hostname' => 'FINANCE-PC',
+            'agent_version' => '0.6.0',
+            'department_id' => $deptFinance->id,
+            'last_seen_at' => now(),
+        ]);
+
+        // Customer in Marketing files a ticket
+        $marketingCustomer = $this->account('employee');
+        $marketingCustomer->update(['department_id' => $deptMarketing->id]);
+        $marketingTicket = $this->actingAs($marketingCustomer)->postJson('/api/v1/tickets', [
+            'title' => 'Marketing printer broken',
+            'description' => 'Cannot print flyers.',
+            'priority' => 'low',
+            'category_id' => TicketCategory::first()->id,
+            'tags' => [],
+        ])->assertCreated()->json('data.id');
+
+        // Technician attempts to request remote access to Finance Device using Marketing Ticket -> Rejected 422
+        $this->actingAs($this->tech)->postJson('/api/v1/remote-sessions', [
+            'device_id' => $financeDevice->id,
+            'ticket_id' => $marketingTicket,
+            'mode' => 'control',
+            'reason' => 'Inspect printer driver remotely',
+            'request_key' => (string) Str::uuid(),
+        ])->assertUnprocessable()->assertJsonPath('message', 'The ticket department does not match the device department.');
+
+        // Customer in Finance files a ticket
+        $financeCustomer = $this->account('employee');
+        $financeCustomer->update(['department_id' => $deptFinance->id]);
+        $financeTicket = $this->actingAs($financeCustomer)->postJson('/api/v1/tickets', [
+            'title' => 'Finance ERP crash',
+            'description' => 'Need payroll assistance.',
+            'priority' => 'high',
+            'category_id' => TicketCategory::first()->id,
+            'tags' => [],
+        ])->assertCreated()->json('data.id');
+
+        // Requesting remote access for Finance Device with Finance Ticket -> Succeeded
+        $validId = $this->actingAs($this->tech)->postJson('/api/v1/remote-sessions', [
+            'device_id' => $financeDevice->id,
+            'ticket_id' => $financeTicket,
+            'mode' => 'control',
+            'reason' => 'Fix ERP payroll crash',
+            'request_key' => (string) Str::uuid(),
+        ])->assertCreated()->json('data.id');
+
+        // When device is moved to another department while session is active -> Reconcile cancels session
+        $financeDevice->update(['department_id' => $deptMarketing->id]);
+        app(RemoteSupportService::class)->reconcile($financeDevice);
+
+        $session = RemoteSession::findOrFail($validId);
+        $this->assertSame('cancelled', $session->status);
+        $this->assertStringContainsString('Department boundary violation', $session->end_reason);
+    }
+
+    public function test_show_endpoint_synchronously_reconciles_expired_session(): void
+    {
+        $id = $this->requestSupport();
+
+        // Advance clock past the 5-minute request expiration deadline
+        $this->travel(305)->seconds();
+
+        // Reading the session via show endpoint immediately detects expiry without relying on cron sweep
+        $response = $this->actingAs($this->tech)->getJson('/api/v1/remote-sessions/'.$id)->assertOk();
+        $this->assertSame('expired', $response->json('data.status'));
+
+        $this->travelBack();
     }
 }

@@ -46,6 +46,8 @@ class RemoteSupportService
                 $this->finish($s, 'cancelled', 'Technician authorization is no longer valid.');
             } elseif (! $customer?->is_active || ! $customer->email_verified_at || $s->ticket->isFinished() || $s->ticket->requester_id !== $customer->id) {
                 $this->finish($s, 'cancelled', 'The customer or ticket is no longer eligible.');
+            } elseif ($device->department_id && (($customer?->department_id && $customer->department_id !== $device->department_id) || ($s->ticket->department_id && $s->ticket->department_id !== $device->department_id))) {
+                $this->finish($s, 'cancelled', 'Department boundary violation: device, customer, or ticket departments do not match.');
             }
         }
     }
@@ -82,6 +84,10 @@ class RemoteSupportService
             $customer = $ticket->requester;
             abort_unless(! $ticket->isFinished() && $customer?->is_active && $customer->email_verified_at, 422, 'Choose an open ticket submitted by the customer.');
             abort_if($customer->id === $actor->id, 422, 'The requesting technician cannot also be the approving customer.');
+            if ($device->department_id) {
+                abort_if($ticket->department_id && $ticket->department_id !== $device->department_id, 422, 'The ticket department does not match the device department.');
+                abort_if($customer->department_id && $customer->department_id !== $device->department_id, 422, 'The approving customer does not belong to the device department.');
+            }
             $s = RemoteSession::create(['status' => 'requested', 'device_id' => $device->id, 'technician_id' => $actor->id, 'customer_id' => $customer->id, 'ticket_id' => $ticket->id, 'requested_mode' => $data['mode'], 'reason' => $data['reason'], 'request_key' => $data['request_key'], 'request_ip' => $ip, 'expires_at' => now()->addMinutes(5)]);
             $this->event($s, 'requested', 'Customer approval requested. Live connections are not configured.', $actor);
 

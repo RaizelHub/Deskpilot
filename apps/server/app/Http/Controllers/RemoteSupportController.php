@@ -40,6 +40,11 @@ class RemoteSupportController extends Controller
     {
         $s = RemoteSession::findOrFail($session);
         abort_unless($service->visible($r->user(), $s), 404);
+        $device = \App\Models\Device::whereKey($s->device_id)->first();
+        if ($device) {
+            $service->reconcile($device);
+            $s->refresh();
+        }
 
         return response()->json(['data' => $s->load([...self::RELATIONS, 'events.actor:id,name']), 'capabilities' => $service->capabilities()]);
     }
